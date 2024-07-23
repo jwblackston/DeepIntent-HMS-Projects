@@ -21,6 +21,8 @@ JDBC_PASSWORD = os.getenv("JDBC_PASSWORD")
 
 # Constants
 INTERNAL_AUDIENCE_SIZE_FILE = 'seed_to_audience_per_1k.csv'  # Internal CSV file
+#Hello testing testing Hello world
+
 
 # Function to create a connection to the MySQL database
 def create_connection( user, password):

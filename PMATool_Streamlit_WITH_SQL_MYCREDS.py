@@ -1,19 +1,25 @@
 import streamlit as st
 import pandas as pd
 import mysql.connector
+import os
+from dotenv import load_dotenv
 
 # Constants
 INTERNAL_AUDIENCE_SIZE_FILE = 'seed_to_audience_per_1k.csv'  # Internal CSV file
-
+#Loading Credentials from env file
+load_dotenv()
+MYSQL_HOST = os.getenv("MYSQL_HOST")
+MYSQL_USER = os.getenv("MYSQL_USER")
+MYSQL_PASSWORD = os.getenv("MYSQL_PASSWORD")
+MYSQL_DATABASE = os.getenv("MYSQL_DATABASE")
 # Function to create a connection to the MySQL database
-def create_connection():
+def create_connection( user, password):
     return mysql.connector.connect(
-        host="mysql1-prod-useast.deepintent.com",
-        user="ignacio.rodriguez@deepintent.com",
-        password="jmdoYtTYVfS5aKQG",
-        database="bidder"
+        host= MYSQL_HOST,
+        user= MYSQL_USER,
+        password= MYSQL_PASSWORD,
+        database=MYSQL_DATABASE
     )
-
 # Function to fetch data from the database
 def fetch_data(query):
     conn = create_connection()

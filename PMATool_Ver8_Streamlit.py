@@ -1,65 +1,21 @@
 import streamlit as st
 import pandas as pd
-import mysql.connector
-#from pyspark.sql import SparkSession
-import os
-from dotenv import load_dotenv
-
-
-
-#Loading Credentials from env file
-load_dotenv()
-MYSQL_HOST = os.getenv("MYSQL_HOST")
-MYSQL_USER = os.getenv("MYSQL_USER")
-MYSQL_PASSWORD = os.getenv("MYSQL_PASSWORD")
-MYSQL_DATABASE = os.getenv("MYSQL_DATABASE")
-#JDBC_URL = os.getenv("JDBC_URL")
-#JDBC_DRIVER = os.getenv("JDBC_DRIVER")
-#JDBC_USER = os.getenv("JDBC_USER")
-#JDBC_PASSWORD = os.getenv("JDBC_PASSWORD")=
+import numpy as np
 
 # Constants
-INTERNAL_AUDIENCE_SIZE_FILE = 'seed_to_audience_per_1k.csv'  # Internal CSV file
-#Hello testing testing Hello world
+INTERNAL_AUDIENCE_SIZE_FILE = 'seed_to_audience_per_1k.csv'  #  internal CSV file
 
+# Load internal audience sizes file
+def load_file(file_path):
+    try:
+        data = pd.read_csv(file_path)
+        st.write("Column names in the internal file:", data.columns.tolist())  # Display column names for debugging, just in case
+        return data
+    except Exception as e:
+        st.error(f"Failed to load internal data: {str(e)}")
+        return None
 
-# Function to create a connection to the MySQL database
-def create_connection( user, password):
-    return mysql.connector.connect(
-        host= MYSQL_HOST,
-        user= MYSQL_USER,
-        password= MYSQL_PASSWORD,
-        database=MYSQL_DATABASE
-    )
-
-# Function to fetch data from the database
-def fetch_data(query, user, password,):
-    conn = create_connection(user, password,)
-    cursor = conn.cursor()
-    cursor.execute(query)
-    rows = cursor.fetchall()
-    columns = [i[0] for i in cursor.description]
-    cursor.close()
-    conn.close()
-    return pd.DataFrame(rows, columns=columns)
-
-
-def create_spark_session():
-    spark = SparkSession.builder \
-        .appName("Streamlit Spark Connection") \
-        .getOrCreate()
-
-    # Set JDBC properties
-    properties = {
-        "user": JDBC_USER,
-        "password": JDBC_PASSWORD,
-        "driver": JDBC_DRIVER
-    }
-
-    return spark, properties
-
-
-# Function to validate number input, making sure the number is an integer without commas
+# Validate number input, making sure the # is a integer no commas
 def validate_number(number_str):
     try:
         number = int(number_str.replace(",", ""))
@@ -67,53 +23,72 @@ def validate_number(number_str):
     except ValueError:
         return False, None
 
-# Function to load a CSV file and display column names for debugging
-def load_file(file_path):
-    try:
-        data = pd.read_csv(file_path)
-        st.write("Column names in the internal file:", data.columns.tolist())
-        return data
-    except Exception as e:
-        st.error(f"Failed to load internal data: {str(e)}")
-        return None
-
-# Function to find the closest audience size
 def find_closest_audience_size(data, seed_size, tolerance=0.05):  # 5% tolerance by default
+    # Convert seed_size to integer if it's input as a string with commas
     seed_size = int(seed_size.replace(',', '')) if isinstance(seed_size, str) else seed_size
+    
+    # Convert data columns to integer for proper calculation
     data['AUDIENCE SIZE APROX'] = data['AUDIENCE SIZE APROX'].str.replace(',', '').astype(int)
     data['SEED SIZE'] = data['SEED SIZE'].str.replace(',', '').astype(int)
+    
+    # Calculate the percent difference between each seed size and the input seed size
     data['Percent Difference'] = abs(data['SEED SIZE'] - seed_size) / seed_size
+    
+    # Find the index of the smallest percent difference that is within the tolerance
     closest_size_index = data[data['Percent Difference'] <= tolerance]['Percent Difference'].idxmin()
+    
+    # Check if a closest size was found within the tolerance
     if pd.notna(closest_size_index):
         closest_size = data.loc[closest_size_index, 'AUDIENCE SIZE APROX']
         return closest_size
     else:
+        # If no size is within the tolerance, return the closest size ignoring the tolerance
         closest_size_index = data['Percent Difference'].idxmin()
         return data.loc[closest_size_index, 'AUDIENCE SIZE APROX']
 
-# Function to find the threshold
+
+
 def find_threshold(dry_run_data, closest_size, tolerance=0.05):  # 5% tolerance by default
+    # Ensure cumulative_sum is converted to a float and the Rounded Cumulative Sum is calculated
     dry_run_data['cumulative_sum'] = dry_run_data['cumulative_sum'].astype(float)
+
+    # Calculate the percent difference between each cumulative_sum and the closest_size
     dry_run_data['Percent Difference'] = abs(dry_run_data['cumulative_sum'] - closest_size) / closest_size
+    
+    # Find the index of the smallest percent difference that is within the tolerance
     valid_indices = dry_run_data['Percent Difference'] <= tolerance
-    if valid_indices.any():
+    if valid_indices.any():  # Check if there's any entry within the tolerance
         closest_row_index = dry_run_data.loc[valid_indices, 'Percent Difference'].idxmin()
     else:
+        # If no entry is within the tolerance, find the closest one ignoring the tolerance
         closest_row_index = dry_run_data['Percent Difference'].idxmin()
+    
+    # Return the threshold of the closest row
     threshold = dry_run_data.loc[closest_row_index, 'threshold']
     return threshold
 
-# Function to get cumulative sum
-def get_cumsum(dry_run_data, closest_size, tolerance=0.05):
+def get_cumsum(dry_run_data, closest_size, tolerance=0.05): # this is practically the same function as above except now outputting the cumulative sum 
+    # Ensure cumulative_sum is converted to a float and the Rounded Cumulative Sum is calculated
     dry_run_data['cumulative_sum'] = dry_run_data['cumulative_sum'].astype(float)
+
+    # Calculate the percent difference between each cumulative_sum and the closest_size
     dry_run_data['Percent Difference'] = abs(dry_run_data['cumulative_sum'] - closest_size) / closest_size
+    
+    # Find the index of the smallest percent difference that is within the tolerance
     valid_indices = dry_run_data['Percent Difference'] <= tolerance
-    if valid_indices.any():
+    if valid_indices.any():  # Check if there's any entry within the tolerance
         closest_row_index = dry_run_data.loc[valid_indices, 'Percent Difference'].idxmin()
     else:
+        # If no entry is within the tolerance, find the closest one ignoring the tolerance
         closest_row_index = dry_run_data['Percent Difference'].idxmin()
+    
+    # Return the threshold of the closest row
     cum_sum = dry_run_data.loc[closest_row_index, 'cumulative_sum']
     return cum_sum
+
+
+
+
 
 # Function to fetch related rows from audience stats based on threshold
 def fetch_stats(audience_stats_data, threshold):
@@ -122,91 +97,38 @@ def fetch_stats(audience_stats_data, threshold):
     st.session_state['idx'] = idx
     return audience_stats_data.loc[idx-2:idx+2]  # Include two rows above and below the matched row
 
+
+
 def app():
     st.title('Audience Analysis Tool')
 
     with st.form("Input_Form"):
+        uploaded_dry_run = st.file_uploader("Upload the Dry Run CSV File", key="dry_run")
+        uploaded_audience_stats = st.file_uploader("Upload the Audience Stats CSV File", key="audience_stats")
         seed_size_input = st.text_input("Enter Cohort Seed Size:")
-        uploaded_file = st.file_uploader("Upload Audience Data", type="csv",key="audience_stats")
         submit_button = st.form_submit_button("Submit")
 
-
     if submit_button:
-        if seed_size_input:
+        if uploaded_dry_run and uploaded_audience_stats and seed_size_input:
+            dry_run_data = pd.read_csv(uploaded_dry_run)
+            audience_stats_data = pd.read_csv(uploaded_audience_stats)
             valid, seed_size = validate_number(seed_size_input)
             if valid:
-                # SQL query to fetch Dry Run data
-                query = """
-                SELECT 
-                    threshold, 
-                    percentile_sum, 
-                    cumulative_sum
-                FROM bidder.AUDIENCE_MODEL am 
-                CROSS JOIN JSON_TABLE(dryrunResults, '$[*]'
-                    COLUMNS (
-                        threshold DOUBLE PATH '$.threshold',
-                        `percentile_sum` INT PATH '$."percentile sum"',
-                        `cumulative_sum` BIGINT PATH '$."cumulative sum"'
-                    )
-                ) AS jt
-                WHERE patientModelId = 13635; 
-                """
-
-                #Spark query to fetch Dry Run data
-                #query2 = """
-                #SELECT
-                #    SCORE_THRESHOLD,
-                #    AUDIENCE_SIZE,
-                #    VERIFIED_PATIENTS,
-                #    AQ_SCORE,
-                #    INCREMENTAL_AQ_SCORE,
-                #    PERCENT_POPULATION,
-                #    PERCENT_PATIENTS,
-                #    THRESHOLD_3X,
-                #    PREVALENCE,
-                #    MODEL_POWER_INDEX,
-                #    TRUE_POSITIVE,
-                #    FALSE_POSITIVE,
-                #    TRUE_NEGATIVE,
-                #    FALSE_NEGATIVE
-                #FROM pma.pma_sentinel_metrics
-                #WHERE train_id like '1714131589017'
-                #AND score_threshold = 0.0648
-                #ORDER BY score_threshold DESC
-                #"""
-
-                #spark, properties = create_spark_session()
-
-                dry_run_data = fetch_data(query, user, password)
-
-                audience_stats_data = pd.read_csv(uploaded_audience_stats)
-                #audience_stats_data = fetch_spark_data(spark, query2, properties).toPandas()
-
-                if dry_run_data.empty:
-                    st.error("No Dry Run data found.")
-                else:
-                    st.write("Dry Run Data Loaded", dry_run_data)
-
-                if not audience_stats_data.empty:
-                    st.write("Audience Stats Data Loaded", audience_stats_data)
-                else:
-                    st.error("Failed to load Audience Stats data.")
-
-                audience_data = load_file(INTERNAL_AUDIENCE_SIZE_FILE)
+                audience_data = load_file('seed_to_audience_per_1k.csv')
                 closest_audience_size = find_closest_audience_size(audience_data, seed_size)
                 threshold = find_threshold(dry_run_data, closest_audience_size)
-                cum_sum = int(get_cumsum(dry_run_data, closest_audience_size))
+                cum_sum = get_cumsum(dry_run_data, closest_audience_size)
                 if threshold:
                     related_stats = fetch_stats(audience_stats_data, threshold)
                     if not related_stats.empty:
                         st.session_state['related_stats'] = related_stats
                         st.session_state['audience_stats_data'] = audience_stats_data
-                        st.write("Matched Data:", threshold, related_stats)
+                        st.write("Matched Data:",threshold,  related_stats)
                     if 'audience_stats_data' in st.session_state:
                         maxAQ = audience_stats_data['AQ_SCORE'].iloc[0]
                         maxModelP = audience_stats_data['MODEL_POWER_INDEX'].iloc[0]
                         st.write(f"### Max AQ: {maxAQ} and Max Model Power: {maxModelP}")
-                    # JIRA Output:
+              #JIRA Output:
                     if 'related_stats' in st.session_state:
                         st.subheader("JIRA Outputs")
                         aq_score = st.session_state['related_stats']['AQ_SCORE'].iloc[2]
@@ -219,7 +141,11 @@ def app():
             else:
                 st.error("Invalid cohort seed size. Please enter a valid number.")
         else:
-            st.error("Please fill in all required fields and upload the necessary files.")
+            st.error("Please upload all required files and enter a cohort seed size.")
+
+
+
+
 
     # Separate section for filtering without causing a form resubmission
     if 'audience_stats_data' in st.session_state:
@@ -230,10 +156,6 @@ def app():
             filtered_data = st.session_state['audience_stats_data'].query(f"`{filter_column}` {filter_query}")
             st.dataframe(filtered_data)
 
+
 if __name__ == "__main__":
     app()
-
-
-# % streamlit run 'PMATool_Streamlit_WITH_SQL_DONTSHARE.py' --server.maxMessageSize 400
-# streamlit run /Users/ignacio.rodriguez/Desktop/PMATool/PMATool_Streamlit_WITH_SQL_DONTSHARE.py --server.maxMessageSize 400
-

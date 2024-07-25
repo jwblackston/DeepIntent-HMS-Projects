@@ -19,10 +19,10 @@ MYSQL_DATABASE = os.getenv("MYSQL_DATABASE")
 # Function to create a connection to the MySQL database
 def create_connection(user, password):
     return mysql.connector.connect(
-        host="mysql1-prod-useast.deepintent.com",
-        user="ignacio.rodriguez@deepintent.com",
-        password="jmdoYtTYVfS5aKQG",
-        database="bidder"
+        host=MYSQL_HOST,
+        user=MYSQL_USER,
+        password=MYSQL_PASSWORD,
+        database=MYSQL_DATABASE
     )
 # Function to fetch data from the database
 def fetch_data(query):
@@ -105,7 +105,6 @@ def app():
         uploaded_audience_stats = st.file_uploader("Upload the Audience Stats CSV File", key="audience_stats")
         seed_size_input = st.text_input("Enter Cohort Seed Size:")
         submit_button = st.form_submit_button("Submit")
-        st.write(MYSQL_HOST)
 
     if submit_button:
         if uploaded_audience_stats and seed_size_input:

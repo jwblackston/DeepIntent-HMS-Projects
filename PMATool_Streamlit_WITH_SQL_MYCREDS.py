@@ -8,21 +8,25 @@ from dotenv import load_dotenv
 INTERNAL_AUDIENCE_SIZE_FILE = 'seed_to_audience_per_1k.csv'  # Internal CSV file
 #Loading Credentials from env file
 load_dotenv()
+
+
 MYSQL_HOST = os.getenv("MYSQL_HOST")
 MYSQL_USER = os.getenv("MYSQL_USER")
 MYSQL_PASSWORD = os.getenv("MYSQL_PASSWORD")
 MYSQL_DATABASE = os.getenv("MYSQL_DATABASE")
+
+
 # Function to create a connection to the MySQL database
-def create_connection( user, password):
+def create_connection(user, password):
     return mysql.connector.connect(
-        host= MYSQL_HOST,
-        user= MYSQL_USER,
-        password= MYSQL_PASSWORD,
-        database=MYSQL_DATABASE
+        host="mysql1-prod-useast.deepintent.com",
+        user="ignacio.rodriguez@deepintent.com",
+        password="jmdoYtTYVfS5aKQG",
+        database="bidder"
     )
 # Function to fetch data from the database
 def fetch_data(query):
-    conn = create_connection()
+    conn = create_connection(user=MYSQL_USER,password=MYSQL_PASSWORD)
     cursor = conn.cursor()
     cursor.execute(query)
     rows = cursor.fetchall()
@@ -101,6 +105,7 @@ def app():
         uploaded_audience_stats = st.file_uploader("Upload the Audience Stats CSV File", key="audience_stats")
         seed_size_input = st.text_input("Enter Cohort Seed Size:")
         submit_button = st.form_submit_button("Submit")
+        st.write(MYSQL_HOST)
 
     if submit_button:
         if uploaded_audience_stats and seed_size_input:
@@ -120,7 +125,7 @@ def app():
                         `cumulative_sum` BIGINT PATH '$."cumulative sum"'
                     )
                 ) AS jt
-                WHERE patientModelId = 13635; 
+                WHERE patientModelId = 13773; 
                 """
 # HERE HERE HERE
 
@@ -177,8 +182,4 @@ def app():
 
 if __name__ == "__main__":
     app()
-
-
-
 # % streamlit run 'PMATool_Streamlit_WITH_SQL_DONTSHARE.py' --server.maxMessageSize 400
-

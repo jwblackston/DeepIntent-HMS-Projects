@@ -1,7 +1,7 @@
 import streamlit as st
 import pandas as pd
 import mysql.connector
-#from pyspark.sql import SparkSession
+from pyspark.sql import SparkSession
 import os
 from dotenv import load_dotenv
 
@@ -9,28 +9,31 @@ from dotenv import load_dotenv
 
 #Loading Credentials from env file
 load_dotenv()
+#SQL
 MYSQL_HOST = os.getenv("MYSQL_HOST")
 MYSQL_USER = os.getenv("MYSQL_USER")
 MYSQL_PASSWORD = os.getenv("MYSQL_PASSWORD")
 MYSQL_DATABASE = os.getenv("MYSQL_DATABASE")
-#JDBC_URL = os.getenv("JDBC_URL")
-#JDBC_DRIVER = os.getenv("JDBC_DRIVER")
-#JDBC_USER = os.getenv("JDBC_USER")
-#JDBC_PASSWORD = os.getenv("JDBC_PASSWORD")=
+#Spark
+SPARK_HOST = os.getenv("SPARK_HOST")
+SPARK_PORT = os.getenv("SPARK_PORT")
+SPARK_USER = os.getenv("SPARK_USER")
+SPARK_PASSWORD = os.getenv("SPARK_PASSWORD")
 
 # Constants
 INTERNAL_AUDIENCE_SIZE_FILE = 'seed_to_audience_per_1k.csv'  # Internal CSV file
-#Hello testing testing Hello world
 
 
 # Function to create a connection to the MySQL database
-def create_connection( user, password):
+def create_connection(user, password):
     return mysql.connector.connect(
         host= MYSQL_HOST,
         user= MYSQL_USER,
         password= MYSQL_PASSWORD,
         database=MYSQL_DATABASE
     )
+
+
 
 # Function to fetch data from the database
 def fetch_data(query, user, password,):
@@ -45,21 +48,24 @@ def fetch_data(query, user, password,):
 
 
 def create_spark_session():
+
     spark = SparkSession.builder \
+        .master(f"spark://{SPARK_HOST}:{SPARK_PORT}") \
         .appName("Streamlit Spark Connection") \
         .getOrCreate()
 
-    # Set JDBC properties
-    properties = {
-        "user": JDBC_USER,
-        "password": JDBC_PASSWORD,
-        "driver": JDBC_DRIVER
-    }
+    return spark
 
-    return spark, properties
+
+# Function to fetch data from Spark
+def fetch_spark_data(spark, query2):
+    df = spark.sql(query2)
+    return df
 
 
 # Function to validate number input, making sure the number is an integer without commas
+
+
 def validate_number(number_str):
     try:
         number = int(number_str.replace(",", ""))
@@ -68,6 +74,8 @@ def validate_number(number_str):
         return False, None
 
 # Function to load a CSV file and display column names for debugging
+
+
 def load_file(file_path):
     try:
         data = pd.read_csv(file_path)
@@ -78,6 +86,8 @@ def load_file(file_path):
         return None
 
 # Function to find the closest audience size
+
+
 def find_closest_audience_size(data, seed_size, tolerance=0.05):  # 5% tolerance by default
     seed_size = int(seed_size.replace(',', '')) if isinstance(seed_size, str) else seed_size
     data['AUDIENCE SIZE APROX'] = data['AUDIENCE SIZE APROX'].str.replace(',', '').astype(int)
@@ -92,6 +102,8 @@ def find_closest_audience_size(data, seed_size, tolerance=0.05):  # 5% tolerance
         return data.loc[closest_size_index, 'AUDIENCE SIZE APROX']
 
 # Function to find the threshold
+
+
 def find_threshold(dry_run_data, closest_size, tolerance=0.05):  # 5% tolerance by default
     dry_run_data['cumulative_sum'] = dry_run_data['cumulative_sum'].astype(float)
     dry_run_data['Percent Difference'] = abs(dry_run_data['cumulative_sum'] - closest_size) / closest_size
@@ -104,6 +116,8 @@ def find_threshold(dry_run_data, closest_size, tolerance=0.05):  # 5% tolerance 
     return threshold
 
 # Function to get cumulative sum
+
+
 def get_cumsum(dry_run_data, closest_size, tolerance=0.05):
     dry_run_data['cumulative_sum'] = dry_run_data['cumulative_sum'].astype(float)
     dry_run_data['Percent Difference'] = abs(dry_run_data['cumulative_sum'] - closest_size) / closest_size
@@ -116,11 +130,14 @@ def get_cumsum(dry_run_data, closest_size, tolerance=0.05):
     return cum_sum
 
 # Function to fetch related rows from audience stats based on threshold
+
+
 def fetch_stats(audience_stats_data, threshold):
     stats = audience_stats_data[audience_stats_data['SCORE_THRESHOLD'] == threshold]
     idx = stats.index[0]
     st.session_state['idx'] = idx
     return audience_stats_data.loc[idx-2:idx+2]  # Include two rows above and below the matched row
+
 
 def app():
     st.title('Audience Analysis Tool')
@@ -129,7 +146,6 @@ def app():
         seed_size_input = st.text_input("Enter Cohort Seed Size:")
         uploaded_file = st.file_uploader("Upload Audience Data", type="csv",key="audience_stats")
         submit_button = st.form_submit_button("Submit")
-
 
     if submit_button:
         if seed_size_input:
@@ -149,38 +165,37 @@ def app():
                         `cumulative_sum` BIGINT PATH '$."cumulative sum"'
                     )
                 ) AS jt
-                WHERE patientModelId = 13635; 
+                WHERE patientModelId = 13731; 
                 """
 
-                #Spark query to fetch Dry Run data
-                #query2 = """
-                #SELECT
-                #    SCORE_THRESHOLD,
-                #    AUDIENCE_SIZE,
-                #    VERIFIED_PATIENTS,
-                #    AQ_SCORE,
-                #    INCREMENTAL_AQ_SCORE,
-                #    PERCENT_POPULATION,
-                #    PERCENT_PATIENTS,
-                #    THRESHOLD_3X,
-                #    PREVALENCE,
-                #    MODEL_POWER_INDEX,
-                #    TRUE_POSITIVE,
-                #    FALSE_POSITIVE,
-                #    TRUE_NEGATIVE,
-                #    FALSE_NEGATIVE
-                #FROM pma.pma_sentinel_metrics
-                #WHERE train_id like '1714131589017'
-                #AND score_threshold = 0.0648
-                #ORDER BY score_threshold DESC
-                #"""
+#                Spark query to fetch Audience Statistics
+                query2 = """
+                SELECT
+                    SCORE_THRESHOLD,
+                    AUDIENCE_SIZE,
+                    VERIFIED_PATIENTS,
+                    AQ_SCORE,
+                    INCREMENTAL_AQ_SCORE,
+                    PERCENT_POPULATION,
+                    PERCENT_PATIENTS,
+                    THRESHOLD_3X,
+                    PREVALENCE,
+                    MODEL_POWER_INDEX,
+                    TRUE_POSITIVE,
+                    FALSE_POSITIVE,
+                    TRUE_NEGATIVE,
+                    FALSE_NEGATIVE
+                FROM pma.pma_sentinel_metrics
+                WHERE train_id like '1721074510926'
+                """
+#                AND score_threshold = 0.0648
+#                ORDER BY score_threshold DESC
 
-                #spark, properties = create_spark_session()
+                dry_run_data = fetch_data(query, MYSQL_USER, MYSQL_PASSWORD)
 
-                dry_run_data = fetch_data(query, user, password)
-
-                audience_stats_data = pd.read_csv(uploaded_audience_stats)
-                #audience_stats_data = fetch_spark_data(spark, query2, properties).toPandas()
+#                audience_stats_data = pd.read_csv(uploaded_audience_stats)
+                spark = create_spark_session()
+                audience_stats_data = fetch_spark_data(spark, query2).toPandas()
 
                 if dry_run_data.empty:
                     st.error("No Dry Run data found.")
@@ -230,10 +245,11 @@ def app():
             filtered_data = st.session_state['audience_stats_data'].query(f"`{filter_column}` {filter_query}")
             st.dataframe(filtered_data)
 
+
 if __name__ == "__main__":
     app()
 
 
-# % streamlit run 'PMATool_Streamlit_WITH_SQL_DONTSHARE.py' --server.maxMessageSize 400
-# streamlit run /Users/ignacio.rodriguez/Desktop/PMATool/PMATool_Streamlit_WITH_SQL_DONTSHARE.py --server.maxMessageSize 400
+# % streamlit run 'PMATool_Streamlit_WITH_SQL_and_Spark.py' --server.maxMessageSize 400
+# streamlit run /Users/ignacio.rodriguez/Desktop/PMATool/PMATool_Streamlit_WITH_SQL_and_Spark.py --server.maxMessageSize 400
 

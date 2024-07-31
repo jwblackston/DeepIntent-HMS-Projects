@@ -4,6 +4,7 @@ import mysql.connector
 from pyspark.sql import SparkSession
 import os
 from dotenv import load_dotenv
+import logging
 
 
 
@@ -19,6 +20,11 @@ SPARK_HOST = os.getenv("SPARK_HOST")
 SPARK_PORT = os.getenv("SPARK_PORT")
 SPARK_USER = os.getenv("SPARK_USER")
 SPARK_PASSWORD = os.getenv("SPARK_PASSWORD")
+
+
+# Configure logging
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 # Constants
 INTERNAL_AUDIENCE_SIZE_FILE = 'seed_to_audience_per_1k.csv'  # Internal CSV file
@@ -48,19 +54,27 @@ def fetch_data(query, user, password,):
 
 
 def create_spark_session():
+    try:
+        spark = SparkSession.builder \
+            .master(f"spark://{SPARK_HOST}:{SPARK_PORT}") \
+            .config("spark.authenticate", "true") \
+            .config("spark.authenticate.secret", SPARK_PASSWORD) \
+            .appName("Streamlit Spark Connection") \
+            .getOrCreate()
 
-    spark = SparkSession.builder \
-        .master(f"spark://{SPARK_HOST}:{SPARK_PORT}") \
-        .appName("Streamlit Spark Connection") \
-        .getOrCreate()
-
-    return spark
-
+        return spark
+    except Exception as e:
+        logger.error(f"Failed to create Spark session: {e}")
+        raise ConnectionError(f"Failed to create Spark session: {e}")
 
 # Function to fetch data from Spark
 def fetch_spark_data(spark, query2):
-    df = spark.sql(query2)
-    return df
+    try:
+        df = spark.sql(query2)
+        return df
+    except Exception as e:
+        logger.error(f"Failed to fetch data from Spark: {e}")
+        raise
 
 
 # Function to validate number input, making sure the number is an integer without commas

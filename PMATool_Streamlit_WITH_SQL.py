@@ -104,14 +104,17 @@ def app():
     with st.form("Input_Form"):
         uploaded_audience_stats = st.file_uploader("Upload the Audience Stats CSV File", key="audience_stats")
         seed_size_input = st.text_input("Enter Cohort Seed Size:")
+        patient_model_id_input = st.text_input("Enter Patient Model ID:")
         submit_button = st.form_submit_button("Submit")
 
+
     if submit_button:
-        if uploaded_audience_stats and seed_size_input:
+        if uploaded_audience_stats and seed_size_input and patient_model_id_input:
             valid, seed_size = validate_number(seed_size_input)
             if valid:
+                patient_model_id = int(patient_model_id_input)
                 # SQL query to fetch Dry Run data
-                query = """
+                query = f"""
                 SELECT 
                     threshold, 
                     percentile_sum, 
@@ -124,7 +127,7 @@ def app():
                         `cumulative_sum` BIGINT PATH '$."cumulative sum"'
                     )
                 ) AS jt
-                WHERE patientModelId = 13773; 
+                WHERE patientModelId = {patient_model_id}; 
                 """
 # HERE HERE HERE
 
@@ -181,4 +184,4 @@ def app():
 
 if __name__ == "__main__":
     app()
-# % streamlit run 'PMATool_Streamlit_WITH_SQL_and_Spark.py' --server.maxMessageSize 400
+# % streamlit run 'PMATool_Streamlit_WITH_SQL.py' --server.maxMessageSize 400

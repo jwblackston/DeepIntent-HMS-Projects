@@ -32,7 +32,7 @@ def updated_aqi(audience_size):
 # Streamlit UI
 st.title("📊 Audience Size & AQI Estimator")
 
-seed_size = st.number_input("Enter Seed Size:", min_value=100, max_value=10000000, value=100000, step=1000)
+seed_size = st.number_input("Enter Seed Size:", min_value=30000, max_value=70000000)
 
 reg_aud = regression_audience(seed_size)
 supp_aud = suppressed_audience(seed_size)

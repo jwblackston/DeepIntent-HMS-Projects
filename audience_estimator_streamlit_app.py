@@ -12,8 +12,11 @@ st.set_page_config(page_title="Audience Estimator", layout="centered")
 
 # 1️⃣ Regression-based audience size (Google Sheets formula)
 def regression_audience(seed_size):
-    reg_audience = 92.9358 * np.exp(-3.7633 * ((seed_size * 0.70) / 10_000_000)**0.1621)
-    return reg_audience * 1_000_000
+    A = 11321239
+    B = 0.00000077781
+    C = 0.82316
+    reg_audience = A * (1 - np.exp(-B * (seed_size ** C)))
+    return reg_audience
 
 # 2️⃣ Apply state suppression factor
 def suppressed_audience(seed_size):

@@ -12,11 +12,9 @@ st.set_page_config(page_title="Audience Estimator", layout="centered")
 
 # 1️⃣ Regression-based audience size (Google Sheets formula)
 def regression_audience(seed_size):
-    A = 11321239
-    B = 0.00000077781
-    C = 0.82316
-    reg_audience = A * (1 - np.exp(-B * (seed_size ** C)))
-    return reg_audience
+    A = 127.5933
+    B = 0.6394
+    return A * (seed_size ** B)
 
 # 2️⃣ Apply state suppression factor
 def suppressed_audience(seed_size):
@@ -24,10 +22,11 @@ def suppressed_audience(seed_size):
     return reg_aud * 0.7439
 
 # 3️⃣ Updated AQI model empirically fit from full data
-def updated_aqi(seed_size):
-    a = 20275.5631
-    b = -0.367426033
-    return a * (seed_size ** b)
+def updated_aqi(audience_size):
+    C = 1389.8729
+    D = 95.0446
+    return C - D * np.log(audience_size)
+
 
 # Streamlit UI
 st.title("📊 Audience Size & AQI Estimator")
